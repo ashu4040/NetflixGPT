@@ -6,10 +6,13 @@ import { addUser, removeUser } from "../utils/userSlice";
 import { useDispatch } from "react-redux";
 import { onAuthStateChanged } from "firebase/auth";
 import { useEffect } from "react";
+import { toggleGptSearchView } from "../utils/GPTSlice";
+import { Supported_lan } from "../utils/constants";
+import { changeLang } from "../utils/configSlice";
 
 const Header = () => {
   const dispatch = useDispatch();
-
+  const showGptSearch = useSelector((store) => store.gpt.showGptSearch);
   const navigate = useNavigate();
   const user = useSelector((store) => store.user);
 
@@ -38,6 +41,13 @@ const Header = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleGPTSearch = () => {
+    dispatch(toggleGptSearchView());
+  };
+
+  const handleLan = (e) => {
+    dispatch(changeLang(e.target.value));
+  };
   return (
     <div className="absolute  w-screen py-4 px-3 bg-gradient-to-b from-black  z-10  flex justify-between">
       <img
@@ -46,10 +56,34 @@ const Header = () => {
         alt=""
       />
       {user && (
-        <button className="text-white" onClick={handlesignout}>
-          {" "}
-          sing out
-        </button>
+        <div>
+          {showGptSearch && (
+            <select
+              className="p-2 m-2 bg-gray-900 text-white rounded w-20 h-10 "
+              onChange={handleLan}
+            >
+              {Supported_lan.map((lang) => (
+                <option key={lang.identifier} value={lang.identifier}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            className="bg-blue-600 text-white w-32 h-14  rounded m-3"
+            onClick={handleGPTSearch}
+          >
+            {showGptSearch ? "Home Page" : "Movie Search "}
+          </button>
+          <button
+            className="text-white bg-red-700 w-32 h-14 rounded m-3 "
+            onClick={handlesignout}
+          >
+            {" "}
+            sing out
+          </button>
+        </div>
       )}
     </div>
   );
