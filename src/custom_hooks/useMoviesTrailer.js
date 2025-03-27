@@ -6,25 +6,36 @@ import { addtrailerVideo } from "../utils/movieSlice";
 const useMoviesTrailer = (id) => {
   const dispatch = useDispatch();
 
-  const GetMovies = async () => {
-    const data = await fetch(
-      "https://api.themoviedb.org/3/movie/" + id + "/videos?language=en-US",
-      API_OPTIONS
-    );
-    const json = await data.json();
-    // console.log(json);
-
-    const filterTrailer = json.results.filter(
-      (video) => video.type == "Trailer"
-    );
-    const trailer = filterTrailer.length ? filterTrailer[0] : json.result[0];
-
-    dispatch(addtrailerVideo(trailer));
-  };
-
   useEffect(() => {
+    if (!id) return; // Avoid unnecessary API calls
+
+    const GetMovies = async () => {
+      try {
+        const response = await fetch(
+          `https://api.themoviedb.org/3/movie/${id}/videos?language=en-US`,
+          API_OPTIONS
+        );
+        const json = await response.json();
+
+        if (!json.results || json.results.length === 0) {
+          dispatch(addtrailerVideo(null));
+          return;
+        }
+
+        const filterTrailer = json.results.filter(
+          (video) => video.type === "Trailer"
+        );
+
+        const trailer =
+          filterTrailer.length > 0 ? filterTrailer[0] : json.results[0];
+        dispatch(addtrailerVideo(trailer));
+      } catch (error) {
+        console.error("Error fetching trailer:", error);
+      }
+    };
+
     GetMovies();
-  }, []);
+  }, [id, dispatch]);
 };
 
 export default useMoviesTrailer;
