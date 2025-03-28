@@ -1,14 +1,25 @@
-import React, { useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import lang from "../utils/MultiLanguage";
-import openai from "../utils/openai";
+import { initializeOpenAI, getOpenAI } from "../utils/openai";
 import { API_OPTIONS } from "../utils/constants";
 import { addGptMovies } from "../utils/GPTSlice";
 
 const GptSearchBar = () => {
-  const langKey = useSelector((store) => store.config.lang);
+  const [apiKey, setApiKey] = useState("");
+  const [isApiSet, setIsApiSet] = useState(false);
   const searchText = useRef();
   const dispatch = useDispatch();
+  const langKey = useSelector((store) => store.config.lang);
+
+  const handleSetApiKey = () => {
+    if (!apiKey) {
+      alert("Please enter your OpenAI API key.");
+      return;
+    }
+    initializeOpenAI(apiKey);
+    setIsApiSet(true);
+  };
 
   const searchMovieTMDB = async (movie) => {
     const data = await fetch(
@@ -20,40 +31,77 @@ const GptSearchBar = () => {
   };
 
   const handleSearchButton = async () => {
-    const querry =
-      "Act as a movie Recommendation system and suggest some movies for the querry :" +
-      searchText.current.value +
-      " only give name of five movies, movies comma seperated like the example given ahead. example: Gadar, Sholay, Don, Batman, Avengers";
-    const gptResult = await openai.chat.completions.create({
-      messages: [{ role: "user", content: querry }],
-      model: "gpt-3.5-turbo",
-    });
-    console.log(gptResult.choices?.[0]?.message?.content);
+    if (!isApiSet) {
+      alert("Please enter your OpenAI API key first.");
+      return;
+    }
 
-    const gptMovies = gptResult.choices?.[0]?.message?.content.split(",");
-    const promiseArray = gptMovies.map((movie) => searchMovieTMDB(movie));
-    const tmdbResult = await Promise.all(promiseArray);
-    dispatch(addGptMovies({ moviesNames: gptMovies, movieResult: tmdbResult }));
+    const query =
+      "Act as a movie Recommendation system and suggest some movies for the query: " +
+      searchText.current.value +
+      " only give name of five movies, movies comma separated. Example: Gadar, Sholay, Don, Batman, Avengers";
+
+    try {
+      const openai = getOpenAI();
+      const gptResult = await openai.chat.completions.create({
+        messages: [{ role: "user", content: query }],
+        model: "gpt-3.5-turbo",
+      });
+
+      console.log(gptResult.choices?.[0]?.message?.content);
+      const gptMovies = gptResult.choices?.[0]?.message?.content.split(",");
+
+      const promiseArray = gptMovies.map((movie) => searchMovieTMDB(movie));
+      const tmdbResult = await Promise.all(promiseArray);
+
+      dispatch(
+        addGptMovies({ moviesNames: gptMovies, movieResult: tmdbResult })
+      );
+    } catch (error) {
+      console.error("Error fetching from OpenAI:", error);
+      alert("Invalid API key or OpenAI error. Try again.");
+    }
   };
+
   return (
-    <div className=" pt-[40%] md:pt-[10%] flex justify-center">
-      <form
-        className=" w-full md:w-1/2 grid grid-cols-12"
-        onSubmit={(e) => e.preventDefault()}
-      >
-        <input
-          ref={searchText}
-          type="text"
-          className=" p-4 m-4 col-span-9"
-          placeholder={lang[langKey].placeHolder}
-        />
-        <button
-          className="col-span-3 m-4 py-2 px-4 bg-red-700 text-white rounded-lg"
-          onClick={handleSearchButton}
+    <div className="pt-[40%] md:pt-[10%] flex flex-col items-center">
+      {!isApiSet && (
+        <div className="mb-4 flex flex-col">
+          <input
+            type="text"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="p-2 border rounded"
+            placeholder="Enter OpenAI API Key"
+          />
+          <button
+            onClick={handleSetApiKey}
+            className="mt-2 py-2 px-4 bg-blue-500 text-white rounded"
+          >
+            Set API Key
+          </button>
+        </div>
+      )}
+
+      {isApiSet && (
+        <form
+          className="w-full md:w-1/2 grid grid-cols-12"
+          onSubmit={(e) => e.preventDefault()}
         >
-          {lang[langKey].search}
-        </button>
-      </form>
+          <input
+            ref={searchText}
+            type="text"
+            className="p-4 m-4 col-span-9"
+            placeholder={lang[langKey].placeHolder}
+          />
+          <button
+            className="col-span-3 m-4 py-2 px-4 bg-red-700 text-white rounded-lg"
+            onClick={handleSearchButton}
+          >
+            {lang[langKey].search}
+          </button>
+        </form>
+      )}
     </div>
   );
 };
